@@ -15,23 +15,39 @@ jobs:
         id: check_approval
         run: |
           if [ -f "Approval" ]; then
-            if grep -q "Approved by Shiv" Approval; then
+            if grep -q "Approved by" Approval; then
               echo "Approved"
+              echo "::set-output name=approved::true"
             else
               echo "Approval file exists but not signed properly"
-              exit 1
+              echo "::set-output name=approved::false"
             fi
           else
             echo "No approval file found"
-            exit 1
+            echo "::set-output name=approved::false"
           fi
+
+      - name: Fail if not approved
+        if: steps.check_approval.outputs.approved == 'false'
+        run: exit 1
 
   merge:
     needs: check-approval
     runs-on: ubuntu-latest
+    if: github.event.pull_request.user.type == 'User' && github.actor == github.event.pull_request.user.login
     steps:
+      - name: Check if user is admin
+        id: check_admin
+        uses: octokit/request-action@v2.x
+        with:
+          route: GET /orgs/:org/members/:username
+          org: ${{ github.repository_owner }}
+          username: ${{ github.actor }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Merge pull request
-        if: success()
+        if: steps.check_admin.outputs.status == 204 && steps.check-approval.outputs.approved == 'true'
         uses: actions/github-script@v6
         with:
           script: |
@@ -42,3 +58,7 @@ jobs:
               repo: context.repo.repo,
               pull_number: pull_request_number
             });
+
+      - name: Fail if not admin
+        if: steps.check_admin.outputs.status != 204
+        run: exit 1
