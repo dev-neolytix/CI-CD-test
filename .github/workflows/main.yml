@@ -1,0 +1,44 @@
+name: Merge PR if Approved
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-approval:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check for approval file
+        id: check_approval
+        run: |
+          if [ -f "Approval" ]; then
+            if grep -q "Approved by" Approval; then
+              echo "Approved"
+            else
+              echo "Approval file exists but not signed properly"
+              exit 1
+            fi
+          else
+            echo "No approval file found"
+            exit 1
+          fi
+
+  merge:
+    needs: check-approval
+    runs-on: ubuntu-latest
+    steps:
+      - name: Merge pull request
+        if: success()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { context, github } = require('@actions/github');
+            const pull_request_number = context.payload.pull_request.number;
+            await github.pulls.merge({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pull_request_number
+            });
