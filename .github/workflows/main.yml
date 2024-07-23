@@ -15,7 +15,7 @@ jobs:
         id: check_approval
         run: |
           if [ -f "Approval" ]; then
-            if grep -q "Approved by" Approval; then
+            if grep -q "Approved by Shiv" Approval; then
               echo "Approved"
             else
               echo "Approval file exists but not signed properly"
