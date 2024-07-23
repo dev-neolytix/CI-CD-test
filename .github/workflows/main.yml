@@ -1,64 +1,23 @@
-name: Merge PR if Approved
-
-on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+name: actions_on_main_branch
+on: 
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+    branches:    
+      - 'main'
 
 jobs:
-  check-approval:
+  job1:
+    name: check_adminA
     runs-on: ubuntu-latest
+    env:
+      NAME_ADMIN: adminA
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Check for approval file
-        id: check_approval
-        run: |
-          if [ -f "Approval" ]; then
-            if grep -q "Approved by" Approval; then
-              echo "Approved"
-              echo "::set-output name=approved::true"
-            else
-              echo "Approval file exists but not signed properly"
-              echo "::set-output name=approved::false"
-            fi
-          else
-            echo "No approval file found"
-            echo "::set-output name=approved::false"
-          fi
-
-      - name: Fail if not approved
-        if: steps.check_approval.outputs.approved == 'false'
+      - name: st1
+        if: ${{ github.actor != env.NAME_ADMIN }}
         run: exit 1
-
-  merge:
-    needs: check-approval
-    runs-on: ubuntu-latest
-    if: github.event.pull_request.user.type == 'User' && github.actor == github.event.pull_request.user.login
-    steps:
-      - name: Check if user is admin
-        id: check_admin
-        uses: octokit/request-action@v2.x
-        with:
-          route: GET /orgs/:org/members/:username
-          org: ${{ github.repository_owner }}
-          username: ${{ github.actor }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Merge pull request
-        if: steps.check_admin.outputs.status == 204 && steps.check-approval.outputs.approved == 'true'
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const { context, github } = require('@actions/github');
-            const pull_request_number = context.payload.pull_request.number;
-            await github.pulls.merge({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: pull_request_number
-            });
-
-      - name: Fail if not admin
-        if: steps.check_admin.outputs.status != 204
-        run: exit 1
+      - name: st2
+        if: ${{ github.actor == env.NAME_ADMIN }}
+        run: echo "ok"
